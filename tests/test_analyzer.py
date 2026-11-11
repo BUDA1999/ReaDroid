@@ -432,6 +432,40 @@ class BuilderTests(unittest.TestCase):
             (res / "button_bg.9.png").write_bytes(b"png")
             self.assertEqual(builder.find_invalid_resource_names(root), [])
 
+    def test_failed_rebuild_preserves_existing_output_and_cleans_partial(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            decoded = root / "decoded"
+            (decoded / "res" / "drawable").mkdir(parents=True)
+            output = root / "out.apk"
+            output.write_bytes(b"previous-good-apk")
+            def failed_build(cmd, timeout):
+                Path(cmd[cmd.index("-o") + 1]).write_bytes(b"partial")
+                return {"returncode": 1, "stdout": "", "stderr": "build error"}
+            with patch("readroid.builder.shutil.which", return_value="/usr/bin/apktool"), \
+                 patch("readroid.builder._run", side_effect=failed_build):
+                result = builder.rebuild_apk(decoded, output)
+            self.assertFalse(result["ok"])
+            self.assertEqual(output.read_bytes(), b"previous-good-apk")
+            self.assertEqual(list(root.glob("*.tmp.apk")), [])
+            self.assertEqual(list(root.glob(".*.tmp.apk")), [])
+
+    def test_successful_rebuild_publishes_temporary_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            decoded = root / "decoded"
+            (decoded / "res" / "drawable").mkdir(parents=True)
+            output = root / "out.apk"
+            def successful_build(cmd, timeout):
+                Path(cmd[cmd.index("-o") + 1]).write_bytes(b"new-apk")
+                return {"returncode": 0, "stdout": "ok", "stderr": ""}
+            with patch("readroid.builder.shutil.which", return_value="/usr/bin/apktool"), \
+                 patch("readroid.builder._run", side_effect=successful_build):
+                result = builder.rebuild_apk(decoded, output)
+            self.assertTrue(result["ok"])
+            self.assertEqual(output.read_bytes(), b"new-apk")
+            self.assertEqual(list(root.glob(".*.tmp.apk")), [])
+
     def test_pipeline_reports_missing_apktool(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
