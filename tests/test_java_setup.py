@@ -7,6 +7,20 @@ from readroid import app
 
 
 class JavaSetupTests(unittest.TestCase):
+    def test_step_diagnostics_include_both_streams_and_sanitize(self):
+        result = app._step_diagnostics({"returncode": 1, "stdout": "I: preparing\nerror: bad resource", "stderr": "\x1b[31mstack\x1b[0m"})
+        self.assertIn("Código de saída: 1", result)
+        self.assertIn("STDOUT:", result)
+        self.assertIn("error: bad resource", result)
+        self.assertIn("STDERR:", result)
+        self.assertIn("stack", result)
+        self.assertNotIn("\x1b", result)
+
+    def test_step_diagnostics_truncates_long_logs_to_tail(self):
+        result = app._step_diagnostics({"stdout": "x" * 2000}, max_chars=100)
+        self.assertIn("início omitido", result)
+        self.assertTrue(result.endswith("x" * 100))
+
     def test_not_termux_does_not_install(self):
         with patch.dict(os.environ, {"PREFIX": "/usr"}), \
              patch.object(app.shutil, "which", return_value="/usr/bin/pkg"), \
