@@ -49,10 +49,10 @@ pkg install apksigner   # optional, but recommended - see "Rebuilding" below
 
 `aapt` already includes `zipalign`. If `openjdk-21`, `jadx`, `apktool`, or `apksigner` are not available in your configured repository, install the available packages and consult the official Termux documentation/README. ReaDroid does not automatically download third-party executable binaries.
 
-Clone the repository (replace with your repository URL after creating it):
+Clone this fork:
 
 ```bash
-git clone https://github.com/Mcsd7/ReaDroid.git
+git clone https://github.com/BUDA1999/ReaDroid.git
 cd ReaDroid
 python readroid.py
 ```
