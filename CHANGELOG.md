@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 - 2026-11-11
+- Added explainable, offline manifest review findings for sensitive permissions, special app access,
+  debug builds, cleartext HTTP, exported components without a declared permission, and enabled backups.
+- The findings show their evidence and a manual-review explanation; they are not a malware verdict.
+- Manifest reports now include `review_findings`, and the terminal summarizes them after analysis.
+- Added tests for expected indicators, benign manifests, and unknown permissions.
+- Fixed banner rendering tests and made optional terminal-width / RTL libraries degrade gracefully when absent.
+
+
 ## 0.1.0 - 2026-10-16
 - Initial public release designed for non-root Termux.
 - Interactive menu featuring a subtle OffensiveTec watermark.

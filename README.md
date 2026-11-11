@@ -20,6 +20,9 @@
   before rebuilding.
 - **Package renaming (applicationId)**: moves smali folders and updates class references as well as the manifest —
   best-effort, intended for repackaging your own app under a different package name.
+- **Explainable manifest review findings** for sensitive permissions, special access, debug builds, cleartext HTTP,
+  exported components lacking a declared permission, and enabled backups. Each finding lists evidence and a review
+  suggestion; these indicators are not a malware verdict.
 - Local JSON reports, without external services or telemetry.
 - Terminal menu designed for mobile screens, with sanitized output (preventing malicious APKs
   from injecting ANSI escape sequences into your terminal).
