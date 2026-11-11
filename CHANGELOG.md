@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased — Java/JADX setup
+## Unreleased — Java/JADX setup and option 11 diagnostics
 - Option 6 offers explicit, confirmed Termux installation of OpenJDK 21 and JADX.
 - Reports installation failures and verifies both executables before declaring success.
+- Option 11 now prints the failing tool exit code and both stdout/stderr tails (sanitized), including Apktool resource errors often emitted on stdout. It will not erase an existing signing key automatically.
 
 ## 0.6.0 - 2026-11-11
 - Copy reports, newly extracted outputs, and rebuilt APKs to `~/storage/downloads/ReaDroid` when shared storage is available; retain private originals for working and rebuilding.

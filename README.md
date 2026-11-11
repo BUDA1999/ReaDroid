@@ -86,6 +86,10 @@ Then run `python3 readroid.py`. Tested on Debian with system apktool/jadx.
 
 The APK path can be absolute or relative to the current working directory. For the JADX option, the tool uses at most four threads (default: two) to reduce memory pressure. Large APKs may still require significant RAM and storage.
 
+### Diagnosing option 11 failures
+
+If a rebuild fails, option 11 prints the exit code and the recent output from both Apktool output streams. For an Apktool failure, note the first `error:` line and the lines immediately after it; for a signing failure, note the reported signer error. A newly generated signing key cannot update an app signed by its original developer. Never delete an existing keystore without a backup.
+
 ### Install Java and JADX in Termux
 
 Select **option 6** (dependencies) and confirm the `pkg install openjdk-21 jadx -y` prompt.
