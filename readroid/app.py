@@ -238,6 +238,47 @@ def run_action(title: str, action: Callable[[Path], dict]) -> None:
         print("O arquivo original não foi modificado.")
 
 
+def install_java_jadx() -> None:
+    """Instala Java/JADX pelo gerenciador do Termux somente após confirmação."""
+    pkg = shutil.which("pkg")
+    prefix = os.environ.get("PREFIX", "")
+    if not pkg or not prefix.startswith("/data/data/com.termux/"):
+        print(YELLOW + "Instalação automática disponível somente no Termux com pkg." + RESET)
+        return
+    print("Será usado: pkg install openjdk-21 jadx -y")
+    print("A instalação precisa de internet e espaço livre; pode demorar.")
+    if safe_input("Instalar Java e JADX agora? [s/N]: ").strip().lower() not in ("s", "sim"):
+        print("Instalação cancelada; nada foi alterado.")
+        return
+    try:
+        result = subprocess.run([pkg, "install", "openjdk-21", "jadx", "-y"], check=False)
+    except OSError as exc:
+        print(RED + "Falha ao iniciar pkg: " + sanitize(str(exc)) + RESET)
+        return
+    if result.returncode != 0:
+        print(RED + f"Instalação falhou (código {result.returncode}). Veja a mensagem acima." + RESET)
+        print("Verifique internet, espaço e o repositório do Termux; não houve confirmação de sucesso.")
+        return
+    java, jadx = shutil.which("java"), shutil.which("jadx")
+    if not java or not jadx:
+        print(YELLOW + "Pacotes instalados, mas Java ou JADX não foi encontrado no PATH." + RESET)
+        return
+    try:
+        java_check = subprocess.run([java, "-version"], capture_output=True, text=True, timeout=15, check=False)
+        jadx_check = subprocess.run([jadx, "--version"], capture_output=True, text=True, timeout=30, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(YELLOW + "Não foi possível verificar Java e JADX: " + sanitize(str(exc)) + RESET)
+        return
+    if java_check.returncode == 0 and jadx_check.returncode == 0:
+        print(GREEN + "Java e JADX instalados e verificados. Use a opção 4 do menu." + RESET)
+    else:
+        print(YELLOW + "Instalação terminou, mas a verificação de Java ou JADX falhou." + RESET)
+        for output in (java_check.stderr or java_check.stdout, jadx_check.stderr or jadx_check.stdout):
+            if output:
+                print(sanitize(output[-1000:]))
+        print("Verifique JAVA_HOME, PATH e os erros acima.")
+
+
 def dependencies() -> None:
     print(CYAN + "\nVERIFICAÇÃO DE DEPENDÊNCIAS" + RESET)
     for name in ("python", "java", "jadx", "apktool", "aapt", "aapt2", "zipalign", "apksigner", "keytool", "unzip", "git", "opencode"):
@@ -259,6 +300,8 @@ def dependencies() -> None:
     print(" pkg install apktool aapt apksigner openjdk-21")
     print(" (aapt já inclui o zipalign; apksigner dá assinatura v1+v2+v3;")
     print("  sem ele, cai para jarsigner, que só assina v1.)")
+    print(CYAN + "\nPara decompilar com JADX, Java e JADX devem estar instalados." + RESET)
+    install_java_jadx()
 
 
 def open_folder(path: Path) -> None:
