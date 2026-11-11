@@ -405,6 +405,33 @@ class BuilderTests(unittest.TestCase):
                 result = builder.rename_package(decoded, bad)
                 self.assertFalse(result["ok"], bad)
 
+    def test_invalid_aapt_resource_name_is_reported_before_build(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            decoded = root / "decoded"
+            bad = decoded / "res" / "drawable" / "$mtrl_checkbox_button_icon_indeterminate_checked__0.xml"
+            bad.parent.mkdir(parents=True)
+            bad.write_text("<vector/>")
+            (decoded / "apktool.yml").write_text("version: 3")
+            with patch("readroid.builder.shutil.which", return_value="/usr/bin/apktool"), \
+                 patch("readroid.builder._run") as run:
+                result = builder.rebuild_apk(decoded, root / "out.apk")
+            self.assertFalse(result["ok"])
+            self.assertIn("invalid_resources", result)
+            self.assertIn("$mtrl_checkbox", result["message"])
+            self.assertIn("referências", result["message"])
+            run.assert_not_called()
+            self.assertTrue(bad.exists())  # diagnostic must not mutate user's extraction
+
+    def test_valid_and_nine_patch_resource_names_pass_preflight(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            res = root / "res" / "drawable-hdpi"
+            res.mkdir(parents=True)
+            (res / "icon_ok.png").write_bytes(b"png")
+            (res / "button_bg.9.png").write_bytes(b"png")
+            self.assertEqual(builder.find_invalid_resource_names(root), [])
+
     def test_pipeline_reports_missing_apktool(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
