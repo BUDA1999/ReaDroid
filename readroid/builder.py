@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -237,8 +238,15 @@ def rebuild_apk(decoded_dir: Path, output_apk: Path) -> dict[str, Any]:
                             "as referências ao recurso nos XML/Smali/public.xml. Faça cópia antes; "
                             "o ReaDroid não renomeia automaticamente para não quebrar referências.")}
     output_apk.parent.mkdir(parents=True, exist_ok=True)
-    result = _run([apktool, "b", str(decoded_dir), "-o", str(output_apk)], timeout=600)
-    ok = result["returncode"] == 0 and output_apk.is_file()
+    # Build aside; only replace the destination after Apktool succeeded and
+    # produced a file, so failures cannot leave a partial APK or destroy an old one.
+    temporary_apk = output_apk.with_name(f".{output_apk.name}.{uuid.uuid4().hex}.tmp.apk")
+    result = _run([apktool, "b", str(decoded_dir), "-o", str(temporary_apk)], timeout=600)
+    ok = result["returncode"] == 0 and temporary_apk.is_file()
+    if ok:
+        temporary_apk.replace(output_apk)
+    else:
+        temporary_apk.unlink(missing_ok=True)
     return {"ok": ok, "returncode": result["returncode"], "stdout": result["stdout"][-4000:],
             "stderr": result["stderr"][-4000:], "output": str(output_apk)}
 
