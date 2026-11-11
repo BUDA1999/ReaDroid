@@ -158,6 +158,73 @@ def _parse_manifest_xml(data: bytes) -> dict[str, Any]:
     return result
 
 
+# Indicadores estáticos para priorizar revisão manual. Não são uma classificação de malware.
+_SENSITIVE_PERMISSION_GROUPS = {
+    "SMS e mensagens": {"READ_SMS", "RECEIVE_SMS", "SEND_SMS", "RECEIVE_MMS", "RECEIVE_WAP_PUSH"},
+    "Chamadas e registos": {"CALL_PHONE", "READ_CALL_LOG", "WRITE_CALL_LOG", "PROCESS_OUTGOING_CALLS"},
+    "Microfone e câmara": {"RECORD_AUDIO", "CAMERA"},
+    "Localização": {"ACCESS_FINE_LOCATION", "ACCESS_BACKGROUND_LOCATION"},
+    "Contactos": {"READ_CONTACTS", "WRITE_CONTACTS", "GET_ACCOUNTS"},
+}
+_SPECIAL_ACCESS_PERMISSIONS = {
+    "REQUEST_INSTALL_PACKAGES": "Pode solicitar instalação de pacotes fora da loja.",
+    "SYSTEM_ALERT_WINDOW": "Pode desenhar janelas sobre outras aplicações.",
+    "MANAGE_EXTERNAL_STORAGE": "Solicita acesso amplo ao armazenamento partilhado.",
+    "QUERY_ALL_PACKAGES": "Pode consultar uma lista ampla de aplicações instaladas.",
+}
+
+
+def manifest_findings(manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    """Gera indicadores explicáveis para revisão manual; nunca decide se o APK é malware."""
+    findings: list[dict[str, Any]] = []
+    permissions = {str(item.get("name", ""))
+                   for item in manifest.get("permissions", []) if item.get("name")}
+    for group, members in _SENSITIVE_PERMISSION_GROUPS.items():
+        matched = sorted(f"android.permission.{name}" for name in members
+                         if f"android.permission.{name}" in permissions)
+        if matched:
+            findings.append({
+                "id": "sensitive_permissions", "severity": "review",
+                "title": f"Permissões sensíveis: {group}",
+                "evidence": matched,
+                "explanation": "Confirma se estas capacidades são necessárias para as funções anunciadas pela aplicação.",
+            })
+    for permission, explanation in _SPECIAL_ACCESS_PERMISSIONS.items():
+        full_name = f"android.permission.{permission}"
+        if full_name in permissions:
+            findings.append({
+                "id": "special_access_permission", "severity": "review",
+                "title": f"Acesso especial solicitado: {permission}",
+                "evidence": [full_name],
+                "explanation": explanation,
+            })
+
+    application = manifest.get("application") or {}
+    if str(application.get("debuggable", "")).lower() == "true":
+        findings.append({"id": "debuggable", "severity": "review", "title": "Aplicação marcada como depurável",
+                         "evidence": ["application debuggable=true"],
+                         "explanation": "Pode expor capacidades de depuração; verifica se é uma compilação de desenvolvimento."})
+    if str(application.get("uses_cleartext_traffic", "")).lower() == "true":
+        findings.append({"id": "cleartext_traffic", "severity": "review", "title": "Tráfego HTTP sem encriptação permitido",
+                         "evidence": ["application usesCleartextTraffic=true"],
+                         "explanation": "Verifica se a aplicação transmite dados sensíveis sem TLS."})
+
+    exposed = []
+    for component in manifest.get("components", []):
+        if str(component.get("exported", "")).lower() == "true" and not component.get("permission"):
+            exposed.append(f"{component.get('type', 'componente')}: {component.get('name') or '(sem nome)'}")
+    if exposed:
+        findings.append({"id": "exported_components", "severity": "review", "title": "Componentes exportados sem permissão declarada",
+                         "evidence": exposed,
+                         "explanation": "Podem ser acessíveis por outras aplicações; verifica os filtros de intent e a autorização no código."})
+
+    if str(application.get("allow_backup", "")).lower() == "true":
+        findings.append({"id": "backup_enabled", "severity": "info", "title": "Backup da aplicação permitido",
+                         "evidence": ["application allowBackup=true"],
+                         "explanation": "Confirma se os dados armazenados podem ser incluídos em cópias de segurança."})
+    return findings
+
+
 def analyze_manifest(path: Path, output_dir: Path) -> dict[str, Any]:
     validate_apk(path)
     manifest_data = None
@@ -224,7 +291,11 @@ def analyze_manifest(path: Path, output_dir: Path) -> dict[str, Any]:
     parsed["apk"] = path.name
     parsed["sha256"] = sha256_file(path)
     parsed["optional_tool_runs"] = tools
-    parsed["security_note"] = "Permissões e flags são sinais para revisão; não classificam sozinhos um app como seguro ou malicioso."
+    if parsed.get("decoded"):
+        parsed["review_findings"] = manifest_findings(parsed)
+    else:
+        parsed["review_findings"] = []
+    parsed["security_note"] = "Indicadores estáticos para revisão manual; não classificam o APK como seguro ou malicioso."
     return parsed
 
 

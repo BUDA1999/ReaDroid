@@ -184,8 +184,17 @@ def run_action(title: str, action: Callable[[Path], dict]) -> None:
             print(f"Permissões encontradas: {len(report.get('permissions', []))}")
             for item in report.get("permissions", [])[:25]:
                 print(" •", sanitize(item.get("name", "")))
+            findings = report.get("review_findings", [])
+            if findings:
+                print(YELLOW + f"\nIndicadores para revisão manual: {len(findings)} (não são uma classificação de malware)" + RESET)
+                for finding in findings:
+                    print(f" • [{sanitize(finding.get('severity', 'info')).upper()}] {sanitize(finding.get('title', ''))}")
+                    print("   Evidência:", "; ".join(sanitize(item) for item in finding.get("evidence", [])))
+                    print("   Rever:", sanitize(finding.get("explanation", "")))
+            elif report.get("decoded"):
+                print("\nNenhum dos indicadores estáticos definidos foi encontrado; isso não garante segurança.")
             if not report.get("decoded"):
-                print(YELLOW + "Manifesto não decodificado. Veja a mensagem no relatório." + RESET)
+                print(YELLOW + "Manifesto não decodificado; os indicadores não foram avaliados. Veja o relatório." + RESET)
         if "urls" in report:
             print(f"URLs: {len(report['urls'])} | Domínios: {len(report['domains'])} | IPs candidatos: {len(report['ipv4_candidates'])}")
             if report.get("truncated_categories"):
@@ -521,9 +530,27 @@ def ai_assistant() -> None:
 
 
 
-from wcwidth import wcwidth, wcswidth
-import arabic_reshaper
-from bidi.algorithm import get_display
+try:
+    from wcwidth import wcwidth, wcswidth
+except ImportError:  # fallback para execução/testes com apenas a biblioteca padrão
+    import unicodedata
+
+    def wcwidth(char):
+        if not char or unicodedata.combining(char):
+            return 0
+        return 2 if unicodedata.east_asian_width(char) in ("W", "F") else 1
+
+    def wcswidth(text):
+        return sum(wcwidth(char) for char in text)
+
+try:
+    import arabic_reshaper
+    from bidi.algorithm import get_display
+except ImportError:  # idiomas RTL continuam legíveis, embora sem reshaping opcional
+    arabic_reshaper = None
+
+    def get_display(text):
+        return text
 
 
 def has_rtl(s):
@@ -532,7 +559,7 @@ def has_rtl(s):
 
 
 def rtl(s):
-    return get_display(arabic_reshaper.reshape(s))
+    return get_display(arabic_reshaper.reshape(s) if arabic_reshaper else s)
 
 
 def fit(text, size):
