@@ -27,10 +27,41 @@ from .builder import (DEFAULT_ALIAS, DEFAULT_STOREPASS, QUICK_EDITS, apply_quick
 # Isso evita salvar os resultados em outro lugar quando o projeto foi extraído
 # em Downloads ou executado a partir de um clone do GitHub.
 BASE = Path(__file__).resolve().parents[1]
+
+
+DOWNLOADS = Path.home() / "storage" / "downloads"
 REPORTS = BASE / "reports"
 OUTPUTS = BASE / "output"
 BUILDS = BASE / "builds"
 KEYSTORE = BASE / ".readroid-keystore.jks"
+
+
+def export_to_downloads(source: Path, category: str, downloads: Path | None = None) -> Path:
+    """Copia resultados finais sem substituir cópias existentes; não move o original."""
+    downloads = DOWNLOADS if downloads is None else downloads
+    if not downloads.is_dir():
+        raise OSError("Download indisponível; autorize o armazenamento no Termux")
+    destination_dir = downloads / "ReaDroid" / category
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    destination = destination_dir / source.name
+    index = 1
+    while destination.exists():
+        destination = destination_dir / f"{source.stem}_{index}{source.suffix}"
+        index += 1
+    if source.is_dir():
+        shutil.copytree(source, destination)
+    else:
+        shutil.copy2(source, destination)
+    return destination
+
+
+def announce_export(source: Path, category: str) -> None:
+    try:
+        destination = export_to_downloads(source, category)
+        print(GREEN + f"Cópia em Downloads: {destination}" + RESET)
+    except (OSError, shutil.Error) as exc:
+        print(YELLOW + f"Não foi possível copiar para Downloads: {sanitize(str(exc))}" + RESET)
+        print("O original continua guardado em:", source)
 GREEN, CYAN, YELLOW, RED, DIM, RESET, BOLD = "\033[92m", "\033[96m", "\033[93m", "\033[91m", "\033[2m", "\033[0m", "\033[1m"
 
 # Remove sequências de escape ANSI e caracteres de controle antes de imprimir qualquer
@@ -168,6 +199,7 @@ def save_and_show(report: dict, prefix: str, apk: Path) -> None:
     target = REPORTS / f"{apk.stem}_{prefix}_{stamp}.json"
     write_report(report, target)
     print(GREEN + f"\nRelatório salvo: {target}" + RESET)
+    announce_export(target, "reports")
 
 
 def run_action(title: str, action: Callable[[Path], dict]) -> None:
@@ -464,13 +496,8 @@ def rebuild_and_sign() -> None:
         final = Path(result["final_apk"])
         print(GREEN + f"\nAPK pronto: {final}" + RESET)
         print("SHA256:", steps.get("sha256", "?"))
-        # Facilita achar no celular: também copiamos pra Downloads, se liberado.
-        downloads = Path.home() / "storage" / "downloads"
-        if downloads.is_dir():
-            dest = downloads / "ReaDroid" / final.name
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(final, dest)
-            print(GREEN + f"{tr('Cópia em:')} {dest}" + RESET)
+        # Sempre mantém o original no diretório privado se a cópia falhar.
+        announce_export(final, "builds")
         if shutil.which("termux-open") and safe_input("Abrir o instalador do Android agora? (s/N): ").strip().lower() == "s":
             subprocess.run([shutil.which("termux-open"), str(final)], check=False)
     else:
@@ -749,6 +776,10 @@ def language_menu() -> None:
 
 
 def main() -> None:
+    if not DOWNLOADS.is_dir():
+        print(YELLOW + "Download indisponível: os resultados continuarão na pasta privada do projeto." + RESET)
+        print("Para permitir cópias em Download, execute termux-setup-storage e aceite a permissão.")
+        pause()
     REPORTS.mkdir(parents=True, exist_ok=True)
     OUTPUTS.mkdir(parents=True, exist_ok=True)
     BUILDS.mkdir(parents=True, exist_ok=True)
@@ -775,6 +806,8 @@ def main() -> None:
                     if result.get("stderr"):
                         print(sanitize(result["stderr"][-2500:]))
                     save_and_show(result, "jadx", apk)
+                    if result.get("files_generated"):
+                        announce_export(target, "output")
         elif choice == "5":
             apk = ask_apk()
             if apk:
@@ -788,7 +821,9 @@ def main() -> None:
                         print(sanitize(result["stderr"][-2500:]))
                     save_and_show(result, "apktool", apk)
                     if result.get("ok"):
-                        print(DIM + "Edite os arquivos dentro dessa pasta e depois use as opções 10/11." + RESET)
+                        announce_export(target, "output")
+                        print(DIM + "Edite os arquivos na pasta privada indicada em Destino; use as opções 10/11." + RESET)
+                        print(DIM + "A pasta em Downloads é apenas uma cópia e não acompanha edições futuras." + RESET)
         elif choice == "6":
             dependencies()
         elif choice == "7":
