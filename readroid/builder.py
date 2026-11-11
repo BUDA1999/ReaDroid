@@ -197,6 +197,26 @@ def ensure_keystore(keystore_path: Path, alias: str = DEFAULT_ALIAS,
             "stderr": result["stderr"] if not ok else ""}
 
 
+def find_invalid_resource_names(decoded_dir: Path) -> list[str]:
+    """List dollar-prefixed file resources rejected by AAPT2 (not values XML).
+
+    Diagnostic only; resource renaming can break XML/Smali/public.xml references.
+    """
+    res_dir = decoded_dir / "res"
+    if not res_dir.is_dir():
+        return []
+    invalid = []
+    for path in sorted(res_dir.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(res_dir)
+        if len(relative.parts) != 2 or relative.parts[0].startswith("values"):
+            continue
+        if path.name.startswith("$"):
+            invalid.append(str(path))
+    return invalid
+
+
 def rebuild_apk(decoded_dir: Path, output_apk: Path) -> dict[str, Any]:
     """apktool b: reconstrói o APK a partir da pasta decodificada (smali + recursos)."""
     apktool = shutil.which("apktool")
@@ -204,6 +224,18 @@ def rebuild_apk(decoded_dir: Path, output_apk: Path) -> dict[str, Any]:
         return {"ok": False, "message": "Apktool não encontrado. Instale: pkg install apktool"}
     if not decoded_dir.is_dir():
         return {"ok": False, "message": f"Pasta não encontrada: {decoded_dir}"}
+    invalid_resources = find_invalid_resource_names(decoded_dir)
+    if invalid_resources:
+        preview = "\n".join(f"  - {path}" for path in invalid_resources[:20])
+        if len(invalid_resources) > 20:
+            preview += f"\n  - … e mais {len(invalid_resources) - 20} arquivo(s)"
+        return {"ok": False, "returncode": None, "stdout": "", "stderr": "",
+                "invalid_resources": invalid_resources,
+                "message": ("Nomes de recursos Android inválidos para AAPT2; a reconstrução foi "
+                            "interrompida antes de alterar a pasta.\n" + preview + "\n"
+                            "Os nomes iniciados por '$' precisam de uma correção compatível com "
+                            "as referências ao recurso nos XML/Smali/public.xml. Faça cópia antes; "
+                            "o ReaDroid não renomeia automaticamente para não quebrar referências.")}
     output_apk.parent.mkdir(parents=True, exist_ok=True)
     result = _run([apktool, "b", str(decoded_dir), "-o", str(output_apk)], timeout=600)
     ok = result["returncode"] == 0 and output_apk.is_file()
