@@ -189,6 +189,39 @@ class LoopTests(unittest.TestCase):
         self.assertTrue(out["ok"])
 
 
+class OutputLocationTests(unittest.TestCase):
+    def test_export_preserves_original_and_existing_copy(self):
+        from readroid.app import export_to_downloads
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            downloads = root / "downloads"
+            downloads.mkdir()
+            src = root / "report.json"
+            src.write_text("first")
+            first = export_to_downloads(src, "reports", downloads)
+            src.write_text("second")
+            second = export_to_downloads(src, "reports", downloads)
+            self.assertEqual(first.read_text(), "first")
+            self.assertEqual(second.read_text(), "second")
+            self.assertEqual(src.read_text(), "second")
+            self.assertNotEqual(first, second)
+
+    def test_export_directory_and_unavailable_downloads(self):
+        from readroid.app import export_to_downloads
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "decoded"
+            source.mkdir()
+            (source / "file.txt").write_text("ok")
+            downloads = root / "downloads"
+            with self.assertRaises(OSError):
+                export_to_downloads(source, "output", downloads)
+            downloads.mkdir()
+            result = export_to_downloads(source, "output", downloads)
+            self.assertEqual((result / "file.txt").read_text(), "ok")
+            self.assertTrue(source.is_dir())
+
+
 class CleanPathTests(unittest.TestCase):
     def test_remove_lixo_de_colagem_e_aspas(self):
         from readroid.app import clean_path
