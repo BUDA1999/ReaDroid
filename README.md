@@ -87,6 +87,8 @@ Then run `python3 readroid.py`. Tested on Debian with system apktool/jadx.
 The APK path can be absolute or relative to the current working directory. For the JADX option, the tool uses at most four threads (default: two) to reduce memory pressure. Large APKs may still require significant RAM and storage.
 
 ### Diagnosing option 11 failures
+AAPT2 rejects Android resource entry names with invalid characters (for example, a drawable entry beginning with `$`). Option 11 now reports the exact paths before running Apktool. It deliberately does not rename resources automatically because every reference in XML, Smali, and `public.xml` must stay consistent. Do not rename files blindly: a safe fix requires understanding resource names and all references; back up the extraction first.
+
 
 If a rebuild fails, option 11 prints the exit code and the recent output from both Apktool output streams. For an Apktool failure, note the first `error:` line and the lines immediately after it; for a signing failure, note the reported signer error. A newly generated signing key cannot update an app signed by its original developer. Never delete an existing keystore without a backup.
 
