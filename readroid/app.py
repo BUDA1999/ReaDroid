@@ -484,6 +484,21 @@ def quick_edits_menu() -> None:
     print("Quando terminar de editar, use a opção 11 para reconstruir, alinhar e assinar.")
 
 
+def _step_diagnostics(step: dict, max_chars: int = 1200) -> str:
+    """Mostra ambos os canais dos programas Android sem perder a causa do erro."""
+    parts = []
+    if step.get("returncode") is not None:
+        parts.append(f"Código de saída: {step['returncode']}")
+    for stream in ("stdout", "stderr"):
+        text = sanitize(str(step.get(stream) or "").strip())
+        if text:
+            if len(text) > max_chars:
+                text = text[-max_chars:]
+                text = "… (início omitido) …\n" + text
+            parts.append(f"{stream.upper()}:\n{text}")
+    return "\n".join(parts)
+
+
 def rebuild_and_sign() -> None:
     print(CYAN + "\nReconstrução e compilação automatizada" + RESET)
     print(YELLOW + "Use só em APKs seus ou que você tem autorização para modificar." + RESET)
@@ -532,8 +547,14 @@ def rebuild_and_sign() -> None:
             print("      " + step["message"])
         if step.get("warning"):
             print(YELLOW + "      " + step["warning"] + RESET)
-        if not ok and step.get("stderr"):
-            print(DIM + "      " + step["stderr"][-400:] + RESET)
+        if not ok:
+            diagnostic = _step_diagnostics(step)
+            if diagnostic:
+                print(DIM + "      " + diagnostic.replace("\n", "\n      ") + RESET)
+            if name_step == "rebuild":
+                print(YELLOW + "      A causa acima vem do Apktool; confira a primeira mensagem 'error:' e as linhas seguintes." + RESET)
+            elif name_step == "sign":
+                print(YELLOW + "      Não apague a chave de assinatura existente sem fazer uma cópia; ela pode ser necessária para builds anteriores." + RESET)
 
     if result["ok"]:
         final = Path(result["final_apk"])
