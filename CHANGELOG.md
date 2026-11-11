@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0 - 2026-11-11
+- Copy reports, newly extracted outputs, and rebuilt APKs to `~/storage/downloads/ReaDroid` when shared storage is available; retain private originals for working and rebuilding.
+- Never overwrite an existing exported copy; warn if copying fails without deleting the original.
+- Keep the signing keystore in the private project directory. Existing outputs are not migrated automatically, and exported extracted directories are snapshots.
+
+
 ## 0.5.0 - 2026-11-11
 - Added explainable, offline manifest review findings for sensitive permissions, special app access,
   debug builds, cleartext HTTP, exported components without a declared permission, and enabled backups.

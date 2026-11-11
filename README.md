@@ -23,7 +23,7 @@
 - **Explainable manifest review findings** for sensitive permissions, special access, debug builds, cleartext HTTP,
   exported components lacking a declared permission, and enabled backups. Each finding lists evidence and a review
   suggestion; these indicators are not a malware verdict.
-- Local JSON reports, without external services or telemetry.
+- Local JSON reports, without external services or telemetry. With Termux storage permission enabled, new reports, extracted output snapshots, and rebuilt APKs are copied to `~/storage/downloads/ReaDroid`. Working files and the signing keystore remain in the project directory. Previously generated output is not copied automatically; edits to exported snapshots do not affect the working copies.
 - Terminal menu designed for mobile screens, with sanitized output (preventing malicious APKs
   from injecting ANSI escape sequences into your terminal).
 - Interactive file explorer to browse and view Java, Kotlin, Smali, XML, JSON files, reports, and rebuilt APKs
