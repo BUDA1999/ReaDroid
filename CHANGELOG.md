@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — Java/JADX setup
+- Option 6 offers explicit, confirmed Termux installation of OpenJDK 21 and JADX.
+- Reports installation failures and verifies both executables before declaring success.
+
 ## 0.6.0 - 2026-11-11
 - Copy reports, newly extracted outputs, and rebuilt APKs to `~/storage/downloads/ReaDroid` when shared storage is available; retain private originals for working and rebuilding.
 - Never overwrite an existing exported copy; warn if copying fails without deleting the original.

@@ -86,6 +86,15 @@ Then run `python3 readroid.py`. Tested on Debian with system apktool/jadx.
 
 The APK path can be absolute or relative to the current working directory. For the JADX option, the tool uses at most four threads (default: two) to reduce memory pressure. Large APKs may still require significant RAM and storage.
 
+### Install Java and JADX in Termux
+
+Select **option 6** (dependencies) and confirm the `pkg install openjdk-21 jadx -y` prompt.
+This downloads packages, needs internet and free storage, and checks `java -version` and
+`jadx --version` afterwards. If the installation fails, read the package manager error and check
+network, storage and Termux repositories. You may also install manually using the same command.
+Use **option 4** to decompile. Java and JADX must be installed on the actual device; updating
+ReaDroid alone does not install them. Only analyze apps you are permitted to analyze.
+
 ## Rebuilding, Alignment, and Signing (options 5, 10, 11, 12)
 
 This workflow provides an install-ready APK without needing to memorize `apktool`/`zipalign`/`apksigner` commands:
