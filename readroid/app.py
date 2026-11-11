@@ -758,67 +758,57 @@ def _ed(ch):
 
 
 def print_menu() -> None:
-    import unicodedata
-
-    cols = width()
+    """Render a compact, colorful menu that stays readable on Termux phone widths."""
+    cols = max(32, min(width(), 78))
     gold = "\033[38;5;220m"
     cyan = CYAN
+    green = GREEN
+    red = RED
+    dim = DIM
     reset = RESET
-    gap = 2
+    inner = max(26, cols - 4)
+    border = "─" * inner
+    left, right = (" " if _BORDERLESS else "│"), (" " if _BORDERLESS else "│")
 
-    def char_width(ch):
-        if unicodedata.combining(ch):
-            return 0
-        if unicodedata.category(ch) in ("Cf", "Mn", "Me"):
-            return 0
-        return 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+    def row(text: str, color: str = "") -> str:
+        return color + left + fit(text, inner) + right + reset
 
+    def title(text: str, color: str) -> None:
+        print(color + (" " if _BORDERLESS else "╭") + border + (" " if _BORDERLESS else "╮") + reset)
+        print(row(text.center(inner), BOLD + color))
+        print(color + ("─" if _BORDERLESS else "├") + border + ("─" if _BORDERLESS else "┤") + reset)
 
-    left_items = _system_items()
-    right_items = _menu_items(True)
-    _set_borderless(left_items + right_items)
-
-    if cols >= 40:
-        lw = (cols - gap) // 2
-        rw = cols - gap - lw
-
-        def compact_panel(title, items, panel_width, color):
-            inner = max(1, panel_width - 2)
-            lines = [
-                _ed("┌") + "─" * inner + _ed("┐"),
-                _ed("│") + fit(title, inner) + _ed("│"),
-                _ed("├") + "─" * inner + _ed("┤"),
-            ]
-            lines.extend(_ed("│") + fit(item, inner) + _ed("│") for item in items)
-            lines.append(_ed("└") + "─" * inner + _ed("┘"))
-            return [color + line + reset for line in lines]
-
-        left = compact_panel("SYSTEM", left_items, lw, gold)
-        right = compact_panel("MENU", right_items, rw, cyan)
-        height = max(len(left), len(right))
-
-        for i in range(height):
-            a = left[i] if i < len(left) else gold + _ed("│") + " " * (lw - 2) + _ed("│") + reset
-            b = right[i] if i < len(right) else cyan + _ed("│") + " " * (rw - 2) + _ed("│") + reset
-            print(a + (f"\x1b[{lw + gap + 1}G" if _BORDERLESS else " " * gap) + b)
-    else:
-        panel_width = max(32, cols - 2)
-        for title, items, color in (
-            ("SYSTEM", left_items, gold),
-            ("MENU", right_items, cyan),
-        ):
-            inner = max(10, panel_width - 2)
-            lines = [
-                _ed("┌") + "─" * inner + _ed("┐"),
-                _ed("│") + fit(title, inner) + _ed("│"),
-                _ed("├") + "─" * inner + _ed("┤"),
-            ]
-            lines.extend(_ed("│") + fit(item, inner) + _ed("│") for item in items)
-            lines.append(_ed("└") + "─" * inner + _ed("┘"))
-            for line in lines:
-                print(color + line + reset)
-            print()
-
+    title(f"RE A DROID  ·  v{__version__}  ·  APK TOOLKIT", cyan)
+    checks = [
+        ("Python", shutil.which("python") is not None),
+        ("Java", shutil.which("java") is not None),
+        ("JADX", shutil.which("jadx") is not None),
+        ("Apktool", shutil.which("apktool") is not None),
+        ("Signer", shutil.which("apksigner") is not None),
+    ]
+    statuses = [f"{name} {'✓' if ok else '·'}" for name, ok in checks]
+    # split status into width-safe rows; each status is one fixed compact token
+    status_rows, current = [], "  SYSTEM  ·  "
+    for token in statuses:
+        candidate = current + ("  " if current.strip() else "") + token
+        if len(candidate) > inner:
+            status_rows.append(current)
+            current = "  " + token
+        else:
+            current = candidate
+    if current.strip():
+        status_rows.append(current)
+    for line in status_rows:
+        color = green if "·" not in line else gold
+        print(row(line, color))
+    print(cyan + ("─" if _BORDERLESS else "├") + border + ("─" if _BORDERLESS else "┤") + reset)
+    print(row("  MENU  ·  escolhe uma opção", BOLD + gold))
+    for key, label in MENU:
+        print(row(f"  [{key:>2}]  {tr(label)}", cyan))
+    if ai_available() and not any(key == "13" for key, _ in MENU):
+        print(row("  [13]  " + tr("Assistente IA"), cyan))
+    print(row("  [ 0]  " + tr("Sair"), dim))
+    print(gold + ("╰" if not _BORDERLESS else "─") + border + ("╯" if not _BORDERLESS else "─") + reset)
     print()
 
 def language_menu() -> None:
