@@ -11,7 +11,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from readroid.analyzer import (analyze_manifest, decompile_with_jadx, extension_warning,
-                               inspect_apk, scan_strings, validate_apk)
+                               inspect_apk, manifest_findings, scan_strings, validate_apk)
 from readroid import __version__, axml, builder
 
 
@@ -106,6 +106,33 @@ class AxmlTests(unittest.TestCase):
             axml.parse_events(b"not an axml at all")
 
 
+class ManifestFindingsTests(unittest.TestCase):
+    def test_flags_are_explained_and_do_not_call_the_app_malware(self):
+        manifest = {
+            "permissions": [
+                {"name": "android.permission.RECEIVE_SMS"},
+                {"name": "android.permission.INTERNET"},
+                {"name": "android.permission.SYSTEM_ALERT_WINDOW"},
+            ],
+            "application": {"debuggable": "true", "uses_cleartext_traffic": "true", "allow_backup": "false"},
+            "components": [{"type": "activity", "name": "com.example.Main", "exported": "true", "permission": None}],
+        }
+        findings = manifest_findings(manifest)
+        ids = {item["id"] for item in findings}
+        self.assertEqual(ids, {"sensitive_permissions", "special_access_permission", "debuggable",
+                               "cleartext_traffic", "exported_components"})
+        self.assertTrue(all(item["evidence"] and item["explanation"] for item in findings))
+        self.assertNotIn("malware", " ".join(item["title"] for item in findings).lower())
+
+    def test_benign_manifest_has_no_findings(self):
+        self.assertEqual(manifest_findings({"permissions": [], "application": {}, "components": []}), [])
+
+    def test_unknown_permissions_are_ignored(self):
+        findings = manifest_findings({"permissions": [{"name": "com.example.permission.CUSTOM"}],
+                                      "application": {}, "components": []})
+        self.assertEqual(findings, [])
+
+
 class AnalyzerTests(unittest.TestCase):
     def test_inspect_apk(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -164,6 +191,10 @@ class AnalyzerTests(unittest.TestCase):
             self.assertEqual(result["decoded_by"], "readroid (leitor AXML nativo)")
             self.assertEqual(result["package"], "com.exemplo.app")
             self.assertEqual(result["optional_tool_runs"], {})  # nenhuma ferramenta externa foi chamada
+            finding_ids = {item["id"] for item in result["review_findings"]}
+            self.assertIn("sensitive_permissions", finding_ids)
+            self.assertIn("debuggable", finding_ids)
+            self.assertIn("exported_components", finding_ids)
 
     def test_any_zip_extension_accepted_with_warning(self):
         with tempfile.TemporaryDirectory() as tmp:

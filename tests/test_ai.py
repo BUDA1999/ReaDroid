@@ -19,10 +19,11 @@ class BannerTests(unittest.TestCase):
     def test_banner_cabe_em_tela_pequena(self):
         self.assertLessEqual(banner.big_width(), 40)
 
-    def test_banner_largo_tem_7_linhas_e_so_blocos(self):
+    def test_banner_largo_preserva_arte_e_cabe_na_tela(self):
         lines = banner.render(60, ("", "", ""))
-        self.assertEqual(len(lines), 7)
-        self.assertTrue(set("".join(lines)) <= {"█", " "})
+        self.assertEqual(len(lines), 10)
+        self.assertTrue(any("██████" in line for line in lines))
+        self.assertTrue(all(len(line) <= 60 for line in lines))
 
     def test_banner_compacto_em_terminal_estreito(self):
         lines = banner.render(30, ("", "", ""))
